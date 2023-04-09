@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import os
 import sys
 import signal
+import shutil
 
 
 def ctrl_c_handler(sig, frame):
@@ -58,6 +59,7 @@ html = requests.get(linux_url, allow_redirects=True)
 soup = BeautifulSoup(html.text, 'html.parser')
 
 panel_blocks = soup.findAll('a', {'class':'panel-block'}, href=True)
+first = True
 for block in panel_blocks:
     href = block["href"].replace("./", "")
     if "tar.xz" in href:
@@ -67,9 +69,17 @@ for block in panel_blocks:
             if not os.path.exists(artifact_path) or args["f"]:
                 url = linux_url + href
                 open(artifact_path, "wb").write(requests.get(url, allow_redirects=True).content)
-                print("FiveM Artifact Successfully [" + artifact_name +"] downloaded!")
+                if first and (args["l"] or args["a"]):
+                    shutil.copyfile(artifact_path, path + "/latest.tar.xz")
+                    print("(latest) FiveM Artifact [" + artifact_name +"] successfully downloaded!")
+                    if args["l"]:
+                        sys.exit()
+                    first = False
+                else:
+                    print("FiveM Artifact [" + artifact_name +"] successfully downloaded!")
             else:
-                print("FiveM Artifact [" + artifact_name +"] already downloaded!")
-            if args["l"]:
-                sys.exit()
-
+                if args["l"]:
+                    print("(latest) FiveM Artifact [" + artifact_name +"] already downloaded!")
+                    sys.exit()
+                else:
+                    print("FiveM Artifact [" + artifact_name +"] already downloaded!")
