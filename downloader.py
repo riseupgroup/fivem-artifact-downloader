@@ -1,46 +1,75 @@
+#!/usr/bin/env python
 import requests
 from bs4 import BeautifulSoup
+import os
+import sys
+import signal
+
+
+def ctrl_c_handler(sig, frame):
+    sys.exit("\nYou pressed Ctrl+C!")
+
+signal.signal(signal.SIGINT, ctrl_c_handler)
+
+args = {
+    "b" : None,
+    "a" : False,
+    "f" : False,
+    "l" : False,
+}
+
+def printHelp():
+    sys.exit("""
+    Usage:
+        python3 downloader.py [options]
+
+    Options:
+        -b <int>    download fivem artifact by build version
+        -a          download all fivem artifacts
+        -h          show this message
+        -f          overide artifact, even if its present
+        -l          download the latest version
+    """)
+if len(sys.argv) > 1:
+    for key, value in enumerate(sys.argv):
+        value = value.replace("-", "")
+        if value in args.keys():
+            if value == "b":
+                if len(sys.argv) > key + 1:
+                    if sys.argv[key+1] and not str(sys.argv[key+1]).startswith("-"):
+                        args[value] = str(sys.argv[key+1])
+                    else:
+                        sys.exit("invalid argument after argument [" + str(key) + ",-" + str(value) +"]")
+                else:
+                    sys.exit("missing argument after argument [" + str(key) + ",-" + str(value) +"]")
+            else:
+                args[value] = True
+else:
+    printHelp()
+
+path = "artifacts"
+if not os.path.exists(path):
+   os.makedirs(path)
+   print("Artifact Directory created")
 
 linux_url = "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
 
 html = requests.get(linux_url, allow_redirects=True)
 soup = BeautifulSoup(html.text, 'html.parser')
-all_elements = soup.findAll('a', {'class':'panel-block'}, href=True)
 
-linux_versions = []
+panel_blocks = soup.findAll('a', {'class':'panel-block'}, href=True)
+for block in panel_blocks:
+    href = block["href"].replace("./", "")
+    if "tar.xz" in href:
+        artifact_name = href.split("-")[0]
+        if args["b"] == artifact_name or args["a"] or args["l"]:
+            artifact_path = path + "/" + artifact_name + ".tar.xz"
+            if not os.path.exists(artifact_path) or args["f"]:
+                url = linux_url + href
+                open(artifact_path, "wb").write(requests.get(url, allow_redirects=True).content)
+                print("FiveM Artifact Successfully [" + artifact_name +"] downloaded!")
+            else:
+                print("FiveM Artifact [" + artifact_name +"] already downloaded!")
+            if args["l"]:
+                sys.exit()
 
-for version in all_elements:
-    if not version['href'] == "..":
-        tag = version['href'].replace('./', '').split("-", 1)[0]
-        url = linux_url + version['href'].replace('./', '')
-        latest_recommended = False
-        latest_optional = False
-        linux_versions.append({"tag": tag, "url": url, "latest": False, "latest_recommended": False, "latest_optional": False })
-    
-linux_versions[0]["latest"] = True
-
-version_buttons = soup.findAll('a', {'class':'is-link'}, href=True)
-
-for version in version_buttons:
-    tag = version['href'].replace('./', '').split("-", 1)[0]
-    if "RECOMMENDED" in str(version):
-        if tag in str(version):
-            for index, linux_version in enumerate(linux_versions):
-                if linux_version["tag"] == tag:
-                    linux_versions[index]["latest_recommended"] = True
-    
-    if "OPTIONAL" in str(version):
-        if tag in str(version):
-            for index, linux_version in enumerate(linux_versions):
-                if linux_version["tag"] == tag:
-                    linux_versions[index]["latest_optional"] = True
-
-for index, version in enumerate(linux_versions):
-    if version["latest"]:
-        open("latest.tar.gz", "wb").write(requests.get(version["url"], allow_redirects=True).content)
-    if version["latest_optional"]:
-        open("latest_optional.tar.gz", "wb").write(requests.get(version["url"], allow_redirects=True).content)
-    if version["latest_recommended"]:
-        open("latest_recommendedt.tar.gz", "wb").write(requests.get(version["url"], allow_redirects=True).content)
-
-print("run 'tar xf fx.tar.gz' to unpack the artifact")
