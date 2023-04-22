@@ -15,8 +15,10 @@ signal.signal(signal.SIGINT, ctrl_c_handler)
 args = {
     "b" : None,
     "a" : False,
+    "s" : False,
     "f" : False,
     "l" : False,
+    "o" : None,
 }
 
 def printHelp():
@@ -27,15 +29,17 @@ def printHelp():
     Options:
         -b <int>    download fivem artifact by build version
         -a          download all fivem artifacts
+        -s          show all artifacts
         -h          show this message
         -f          overide artifact, even if its present
         -l          download the latest version
+        -o <dir>    save download in directory
     """)
 if len(sys.argv) > 1:
     for key, value in enumerate(sys.argv):
         value = value.replace("-", "")
         if value in args.keys():
-            if value == "b":
+            if value == "b" or value == "o":
                 if len(sys.argv) > key + 1:
                     if sys.argv[key+1] and not str(sys.argv[key+1]).startswith("-"):
                         args[value] = str(sys.argv[key+1])
@@ -49,6 +53,8 @@ else:
     printHelp()
 
 path = "artifacts"
+if args["o"]:
+    path = args["o"]
 if not os.path.exists(path):
    os.makedirs(path)
    print("Artifact Directory created")
@@ -64,7 +70,9 @@ for block in panel_blocks:
     href = block["href"].replace("./", "")
     if "tar.xz" in href:
         artifact_name = href.split("-")[0]
-        if args["b"] == artifact_name or args["a"] or args["l"]:
+        if args["s"]:
+            print(artifact_name)
+        elif args["b"] == artifact_name or args["a"] or args["l"]:
             artifact_path = path + "/" + artifact_name + ".tar.xz"
             if not os.path.exists(artifact_path) or args["f"]:
                 url = linux_url + href
